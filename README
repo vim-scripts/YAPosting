@@ -1,7 +1,5 @@
 This is a mirror of http://www.vim.org/scripts/script.php?script_id=957
 
-[OUTDATED: not been tested for vim 7... Updates are welcome !]
-
 This script was designed in order to have a simple but reliable, comprehensive and reusable set of mappings, functions and syntax in order to improve the Mailing and Posting edition. It does 'clean' the quotes in the mail (removes empty quoted lines, condense quote signs and remove signature), it changes Microsoft Outlook Express quote header to a standard quote header and put the quote where it belongs, it can remove quoted or not quoted paragraphs and it can reformat your text into 
 a justified text inside margins.
 
@@ -13,6 +11,7 @@ USAGE :
 the default keybindings are :
     tc : clean the mail (removes empty quoted lines, removes signature...)
     tm : move a MS/OE signature to the top of the quotation, and change the quotation tag.
+           note: since MS/OE has evolved, that feature may not work as well as in 2004.
     tt : takeout a paragraph (or a quoted paragraph)
          you will be prompt to enter a reason to put inside the square brackets (like [snip])
     tr : reformat the current paragraph in order to have it belonging your formating rules
@@ -23,4 +22,10 @@ the default keybindings are :
             g:par_alinea
            )
     th : toggle highlighting of 72 and 80 columns limits 
-          (texts after 72 column will appear yellow, and after 80 will appear red).
+          (texts after 72 column will appear yellow, and after 80 will appear red). 
+          note: has to be deprecated to support new vim 7 features
+    tn : added 'cut here' lines into your mail (new in v0.2) :
+-------8<----------8<--------
+text
+------->8---------->8--------
+         

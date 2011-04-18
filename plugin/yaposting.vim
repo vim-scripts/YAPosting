@@ -3,11 +3,11 @@
 " Plugin providing extended, reusable, comprehensive and smart USENET/E-Mail 
 " support. 
 "
-" Version    : 0.1
+" Version    : 0.2
 " Author     : Pratz Bernard <Guyzmo@m0g.net>
 " Target     : Vim
-" Tested     : VIM - Vi IMproved 6.2
-" Last update: Thu Apr 08 07:45:17 CEST 2004
+" Tested     : VIM - Vi IMproved 7.1
+" Last update: Mon Dec 20 17:10:12 CET 2010
 " TODO       : * Add a line cutter for OE-Quotefix when increasing the
 "                QuoteLevel
 "              * Improve the quote rectification by adding the space where it
@@ -188,6 +188,9 @@ let s:verb        = '\%(wrote\|writes\|said\|says\|stated\|states\|typed\|opinio
 " This is a MS quote intro :
 let s:OEQuoteIntro = '-----\s*Original Message\s*-----'
 
+let s:CutHereBeg = '--------8<----------------8<----------------8<---------------8<--------'
+let s:CutHereEnd = '-------->8---------------->8---------------->8--------------->8--------'
+
 """"
 " You'd better configure this variables to fit your needs.
 
@@ -196,7 +199,7 @@ let s:highlights = 0
 
 " This is a more precise quote intro :
 " This one does fit my needs...
-let s:IntroQuote  = '^Le.*'.s:verb.' :$'
+let s:IntroQuote  = '^On.*'.s:verb.' :$'
 
 " This is the quote intro which will replace MS OE's quote :
 " Just move the FROM and DATE strings in the variable, in order to get no
@@ -207,7 +210,8 @@ let s:QuoteIntro = 'On DATE, FROM said :'
 " These ones can be kept the same way.
 
 " This is the quote regexp pattern which match a common quote sign.
-let g:QuoteRegexp = '[A-Za-z0-9]*[|>%]'
+"let g:QuoteRegexp = '[A-Za-z0-9]*[|>%]'
+let g:QuoteRegexp = '>'
 
 " This is the signature footer pattern.
 let s:SignPattern = '-- '
@@ -217,7 +221,7 @@ let s:SignPattern = '-- '
 ""
 " PAGE SETUP
 
-let s:marginleft  = 4
+let s:marginleft  = 0
 let s:marginright = 8
 let s:textwidth   = 80
 let s:alinea      = 4
@@ -239,6 +243,7 @@ let s:cleanrep = "tc"
 let s:cleanreu = "t<UP>"
 let s:cleanred = "t<DOWN>"
 let s:highligh = "th"
+let s:cuthere = "tn"
 
 ""
 " HIGHLIGHTS
@@ -254,8 +259,8 @@ function! HighLightenment()
         return 0
     endif
     "let s:hi_notquoted = '/^\([\[A-Za-z0-9\]*\[|%>\]\s^V|]\)\@!\%(\%(.\%<'.s:textwidth.'v\)*\)\@>.\%(\n\zs\|\zs.*\)/'
-    let s:hi_first     = '/.\%>'. ( s:textwidth - s:marginright + 1 ) .'v/'
-    let s:hi_second     = '/.\%>'. ( s:textwidth + 1 ) .'v/'
+    let s:hi_first     = '/\%>'. ( s:textwidth - s:marginright + 1 ) .'v.\+/'
+    let s:hi_second     = '/\%>'. ( s:textwidth + 1 ) .'v.\+/'
     setl syn=mail
     exe ':syn match Search '.s:hi_first
     exe ':syn match Error '.s:hi_second
@@ -288,6 +293,8 @@ function! s:DoMappings()
     exe 'nmap '.s:cleanreu.' :call CleanReply("clean","cursatbeg")<CR>'
     exe 'nmap '.s:cleanred.' :call CleanReply("clean","cursatend")<CR>'
     exe 'nmap '.s:highligh.' :call HighLightenment()<CR>'
+    exe 'nmap '.s:cuthere.'  O'.s:CutHereBeg.'<CR>'.s:CutHereEnd.'<ESC>^O'
+    exe 'vmap '.s:cuthere.'  :s/\(\_.*\)/'.s:CutHereBeg.'\1'.s:CutHereEnd.'<CR>'
 endfunction
 function! s:EndOfQuotation()
     " Returns the linenumber following the quotation
@@ -678,9 +685,9 @@ function! FormatText()
     " where it is from... But I hope that Jah'll show me the way %)
     " Anyway, I'm on it, I want it clean
     " Of course, any help is welcome :)
-    
     " Justifies the current paragraph respecting the first tabulation
     " and the left and right margins
+        exe "perl use Text::Iconv;"
         exe "perl use Text::Format;"
         exe "perl my @line, $text, $i, $j;"
         exe "perl $text = new Text::Format;"
@@ -691,8 +698,13 @@ function! FormatText()
         exe "perl $text->bodyIndent(0);"
         exe "perl $text->justify(1);"
         exe "perl @line = $curbuf->Get(".a:beg."..".a:end.");"
+        exe "perl $converter = Text::Iconv->new('utf-8','iso8859-15');"
+        exe "perl $_ = $converter->convert($_) for @line;"
         exe "norm ".a:beg."GV".a:end."Gd"
-        exe "perl $curbuf->Append(".a:beg."-1,$text->format(@line))"
+        exe "perl @line = $text->format(@line)"
+        exe "perl $converter = Text::Iconv->new('iso8859-15','utf-8');"
+        exe "perl $_ = $converter->convert($_) for @line;"
+        exe "perl $curbuf->Append(".a:beg."-1,@line)"
         exe "perl undef @line, @lnum, $text, $i, $j;"
         exe "norm ".a:beg."Gvip"
         exe "%s/".nr2char(10)."//g"
@@ -702,6 +714,32 @@ function! FormatText()
         sil call Justify(BegParagraph(line('.')),EndParagraph(line('.')))
     endif
 endfunction
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+fun! CompleteAddressBook(findstart, base)
+    if a:findstart
+        " locate the start of the word
+        let line = getline('.')
+        let start = col('.') - 1
+        while start > 0 && line[start - 1] =~ '\a'
+            let start -= 1
+        endwhile
+        return start
+    else
+        " find months matching with "a:base"
+        let res = []
+        for m in sort(copy(eval(system('python /home/guyzmo/bin/list_ab.py /home/guyzmo/.abook/addressbook'))))
+            if m =~ '^' . a:base
+                call add(res, m)
+            endif
+        endfor
+        return res
+    endif
+endfun
+set completefunc=CompleteAddressBook
+set omnifunc=CompleteAddressBook
+inoremap <Nul> <C-x><C-o>
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 " Let's init the mappings...
